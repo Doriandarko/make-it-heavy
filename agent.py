@@ -2,8 +2,10 @@ import json
 import yaml
 from openai import OpenAI
 from tools import discover_tools
+from typing import List, cast
+from openai.types.chat.chat_completion_tool_param import ChatCompletionToolParam
 
-class OpenRouterAgent:
+class LLMAgent:
     def __init__(self, config_path="config.yaml", silent=False):
         # Load configuration
         with open(config_path, 'r') as f:
@@ -11,30 +13,43 @@ class OpenRouterAgent:
         
         # Silent mode for orchestrator (suppresses debug output)
         self.silent = silent
+
+        # Determine LLM provider
+        self.provider = self.config.get('provider', 'openrouter')
+        if not self.silent:
+            print(f"🤖 Using LLM provider: {self.provider}")
+
+        provider_config = self.config[self.provider]
         
-        # Initialize OpenAI client with OpenRouter
+        # Initialize OpenAI client
         self.client = OpenAI(
-            base_url=self.config['openrouter']['base_url'],
-            api_key=self.config['openrouter']['api_key']
+            base_url=provider_config['base_url'],
+            api_key=provider_config['api_key']
         )
+        self.model = provider_config['model']
         
         # Discover tools dynamically
         self.discovered_tools = discover_tools(self.config, silent=self.silent)
         
-        # Build OpenRouter tools array
-        self.tools = [tool.to_openrouter_schema() for tool in self.discovered_tools.values()]
+        # Build tools array in the format expected by the OpenAI API
+        # Use cast() to tell type checker that our dict structure matches ChatCompletionToolParam
+        self.tools: List[ChatCompletionToolParam] = [
+            cast(ChatCompletionToolParam, tool.to_openrouter_schema()) 
+            for tool in self.discovered_tools.values()
+        ]
         
         # Build tool mapping
         self.tool_mapping = {name: tool.execute for name, tool in self.discovered_tools.items()}
     
     
     def call_llm(self, messages):
-        """Make OpenRouter API call with tools"""
+        """Make API call with tools"""
         try:
             response = self.client.chat.completions.create(
-                model=self.config['openrouter']['model'],
+                model=self.model,
                 messages=messages,
-                tools=self.tools
+                tools=self.tools,
+                tool_choice="auto"  # Explicitly enable tool choice
             )
             return response
         except Exception as e:
@@ -83,7 +98,7 @@ class OpenRouterAgent:
             }
         ]
         
-        # Track all assistant responses for full content capture
+        # Track all assistant responses for full response capture
         full_response_content = []
         
         # Implement agentic loop from OpenRouter docs

@@ -8,6 +8,15 @@ openrouter:
   # processed together during synthesis. Low context window models may fail or truncate results.
   model: "moonshotai/kimi-k2"
 
+# LM Studio API settings  
+lmstudio:
+  base_url: "http://localhost:1234/v1"
+  api_key: "lm-studio" # LM Studio API key is not required, but the field is expected.
+  model: "deepseek-r1-0528-qwen3-8b" # DeepSeek-R1 with tool calling support
+
+# LLM Provider ("openrouter" or "lmstudio")
+provider: "lmstudio"
+
 # System prompt for the agent
 system_prompt: |
   You are a helpful research assistant. When users ask questions that require 
@@ -20,11 +29,11 @@ system_prompt: |
 
 # Agent settings
 agent:
-  max_iterations: 10
+  max_iterations: 4
 
 # Orchestrator settings
 orchestrator:
-  parallel_agents: 4  # Number of agents to run in parallel
+  parallel_agents: 2  # Number of agents to run in parallel
   task_timeout: 300   # Timeout in seconds per agent
   aggregation_strategy: "consensus"  # How to combine results
   

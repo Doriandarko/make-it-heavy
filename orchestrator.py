@@ -3,8 +3,8 @@ import yaml
 import time
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Dict, Any
-from agent import OpenRouterAgent
+from typing import List, Dict, Any, Optional
+from agent import LLMAgent
 
 class TaskOrchestrator:
     def __init__(self, config_path="config.yaml", silent=False):
@@ -26,7 +26,7 @@ class TaskOrchestrator:
         """Use AI to dynamically generate different questions based on user input"""
         
         # Create question generation agent
-        question_agent = OpenRouterAgent(silent=True)
+        question_agent = LLMAgent(silent=True)
         
         # Get question generation prompt from config
         prompt_template = self.config['orchestrator']['question_generation_prompt']
@@ -61,7 +61,7 @@ class TaskOrchestrator:
                 f"Verify and cross-check facts about: {user_input}"
             ][:num_agents]
     
-    def update_agent_progress(self, agent_id: int, status: str, result: str = None):
+    def update_agent_progress(self, agent_id: int, status: str, result: Optional[str] = None):
         """Thread-safe progress tracking"""
         with self.progress_lock:
             self.agent_progress[agent_id] = status
@@ -77,7 +77,7 @@ class TaskOrchestrator:
             self.update_agent_progress(agent_id, "PROCESSING...")
             
             # Use simple agent like in main.py
-            agent = OpenRouterAgent(silent=True)
+            agent = LLMAgent(silent=True)
             
             start_time = time.time()
             response = agent.run(subtask)
@@ -128,7 +128,7 @@ class TaskOrchestrator:
             return responses[0]
         
         # Create synthesis agent to combine all responses
-        synthesis_agent = OpenRouterAgent(silent=True)
+        synthesis_agent = LLMAgent(silent=True)
         
         # Build agent responses section
         agent_responses_text = ""
