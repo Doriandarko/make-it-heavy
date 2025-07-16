@@ -1,21 +1,21 @@
-from agent import OpenRouterAgent
+from agent import LLMAgent
 
 def main():
-    """Main entry point for the OpenRouter agent"""
-    print("OpenRouter Agent with DuckDuckGo Search")
+    """Main entry point for the LLM agent"""
+    print("LLM Agent with DuckDuckGo Search")
     print("Type 'quit', 'exit', or 'bye' to exit")
     print("-" * 50)
     
     try:
-        agent = OpenRouterAgent()
+        agent = LLMAgent()
         print("Agent initialized successfully!")
-        print(f"Using model: {agent.config['openrouter']['model']}")
-        print("Note: Make sure to set your OpenRouter API key in config.yaml")
+        print(f"Using model: {agent.model}")
+        print(f"Note: Make sure to set your API key in config.yaml for the '{agent.provider}' provider")
         print("-" * 50)
     except Exception as e:
         print(f"Error initializing agent: {e}")
         print("Make sure you have:")
-        print("1. Set your OpenRouter API key in config.yaml")
+        print("1. Set your API key in config.yaml")
         print("2. Installed all dependencies with: pip install -r requirements.txt")
         return
     
