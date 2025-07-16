@@ -1,4 +1,15 @@
-# OpenRouter API settings
+# Provider selection (openrouter or claude_code)
+provider: "openrouter"
+
+# Claude Code settings (when provider is "claude_code")
+claude_code:
+  model: "claude-sonnet-4-20250514"  # Claude Sonnet 4 as default
+  max_turns: 10
+  cli_path: "claude"  # Path to claude CLI (if not in PATH)
+  # system_prompt: |  # Optional, will use general system_prompt if not specified
+  #   You are a helpful research assistant...
+
+# OpenRouter API settings (when provider is "openrouter")
 openrouter:
   api_key: "YOUR KEY"
   base_url: "https://openrouter.ai/api/v1"

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python use_tool.py:*)"
+    ],
+    "deny": []
+  }
+}
