@@ -1,21 +1,21 @@
-from agent import OpenRouterAgent
+from agent import GroqAgent
 
 def main():
-    """Main entry point for the OpenRouter agent"""
-    print("OpenRouter Agent with DuckDuckGo Search")
+    """Main entry point for the Groq agent"""
+    print("Groq Agent with DuckDuckGo Search")
     print("Type 'quit', 'exit', or 'bye' to exit")
     print("-" * 50)
     
     try:
-        agent = OpenRouterAgent()
+        agent = GroqAgent()
         print("Agent initialized successfully!")
-        print(f"Using model: {agent.config['openrouter']['model']}")
-        print("Note: Make sure to set your OpenRouter API key in config.yaml")
+        print(f"Using model: {agent.config['groq']['model']}")
+        print("Note: Make sure to set your Groq API key in config.yaml")
         print("-" * 50)
     except Exception as e:
         print(f"Error initializing agent: {e}")
         print("Make sure you have:")
-        print("1. Set your OpenRouter API key in config.yaml")
+        print("1. Set your Groq API key in config.yaml")
         print("2. Installed all dependencies with: pip install -r requirements.txt")
         return
     

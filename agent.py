@@ -3,7 +3,7 @@ import yaml
 from openai import OpenAI
 from tools import discover_tools
 
-class OpenRouterAgent:
+class GroqAgent:
     def __init__(self, config_path="config.yaml", silent=False):
         # Load configuration
         with open(config_path, 'r') as f:
@@ -12,16 +12,16 @@ class OpenRouterAgent:
         # Silent mode for orchestrator (suppresses debug output)
         self.silent = silent
         
-        # Initialize OpenAI client with OpenRouter
+        # Initialize OpenAI client with Groq
         self.client = OpenAI(
-            base_url=self.config['openrouter']['base_url'],
-            api_key=self.config['openrouter']['api_key']
+            base_url=self.config['groq']['base_url'],
+            api_key=self.config['groq']['api_key']
         )
         
         # Discover tools dynamically
         self.discovered_tools = discover_tools(self.config, silent=self.silent)
         
-        # Build OpenRouter tools array
+        # Build Groq tools array
         self.tools = [tool.to_openrouter_schema() for tool in self.discovered_tools.values()]
         
         # Build tool mapping
@@ -29,10 +29,10 @@ class OpenRouterAgent:
     
     
     def call_llm(self, messages):
-        """Make OpenRouter API call with tools"""
+        """Make Groq API call with tools"""
         try:
             response = self.client.chat.completions.create(
-                model=self.config['openrouter']['model'],
+                model=self.config['groq']['model'],
                 messages=messages,
                 tools=self.tools
             )
