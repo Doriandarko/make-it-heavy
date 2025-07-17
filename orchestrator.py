@@ -4,7 +4,7 @@ import time
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Any
-from agent import OpenRouterAgent
+from agent import GroqAgent
 
 class TaskOrchestrator:
     def __init__(self, config_path="config.yaml", silent=False):
@@ -26,7 +26,7 @@ class TaskOrchestrator:
         """Use AI to dynamically generate different questions based on user input"""
         
         # Create question generation agent
-        question_agent = OpenRouterAgent(silent=True)
+        question_agent = GroqAgent(silent=True)
         
         # Get question generation prompt from config
         prompt_template = self.config['orchestrator']['question_generation_prompt']
@@ -77,7 +77,7 @@ class TaskOrchestrator:
             self.update_agent_progress(agent_id, "PROCESSING...")
             
             # Use simple agent like in main.py
-            agent = OpenRouterAgent(silent=True)
+            agent = GroqAgent(silent=True)
             
             start_time = time.time()
             response = agent.run(subtask)
@@ -128,7 +128,7 @@ class TaskOrchestrator:
             return responses[0]
         
         # Create synthesis agent to combine all responses
-        synthesis_agent = OpenRouterAgent(silent=True)
+        synthesis_agent = GroqAgent(silent=True)
         
         # Build agent responses section
         agent_responses_text = ""

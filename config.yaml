@@ -1,12 +1,12 @@
-# OpenRouter API settings
-openrouter:
+# Groq API settings
+groq:
   api_key: "YOUR KEY"
-  base_url: "https://openrouter.ai/api/v1"
+  base_url: "https://api.groq.com/openai/v1"
   
   # IMPORTANT: When selecting a model, ensure it has a high context window (200k+ tokens recommended)
   # The orchestrator can generate large amounts of results from multiple agents that need to be
   # processed together during synthesis. Low context window models may fail or truncate results.
-  model: "moonshotai/kimi-k2"
+  model: "llama3-70b-8192"
 
 # System prompt for the agent
 system_prompt: |
