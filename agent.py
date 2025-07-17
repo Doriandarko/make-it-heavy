@@ -100,11 +100,13 @@ class GroqAgent:
             
             # Add the response to messages
             assistant_message = response.choices[0].message
-            messages.append({
+            message_to_append = {
                 "role": "assistant",
-                "content": assistant_message.content,
-                "tool_calls": assistant_message.tool_calls
-            })
+                "content": assistant_message.content
+            }
+            if assistant_message.tool_calls:
+                message_to_append['tool_calls'] = assistant_message.tool_calls
+            messages.append(message_to_append)
             
             # Capture assistant content for full response
             if assistant_message.content:
