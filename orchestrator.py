@@ -2,9 +2,12 @@ import json
 import yaml
 import time
 import threading
+import random
+
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Any
 from agent import OpenRouterAgent
+
 
 class TaskOrchestrator:
     def __init__(self, config_path="config.yaml", silent=False):
@@ -53,13 +56,22 @@ class TaskOrchestrator:
             return questions
             
         except (json.JSONDecodeError, ValueError) as e:
-            # Fallback: create simple variations if AI fails
-            return [
+            # Fallback: create random shuffled variations if AI fails
+            fallback_templates = [
                 f"Research comprehensive information about: {user_input}",
                 f"Analyze and provide insights about: {user_input}",
                 f"Find alternative perspectives on: {user_input}",
-                f"Verify and cross-check facts about: {user_input}"
-            ][:num_agents]
+                f"Verify and cross-check facts about: {user_input}",
+            ]
+            random.shuffle(fallback_templates)
+            # If more agents than templates, repeat and shuffle again
+            result = []
+            while len(result) < num_agents:
+                needed = num_agents - len(result)
+                to_add = fallback_templates[:needed]
+                random.shuffle(to_add)
+                result.extend(to_add)
+            return result[:num_agents]
     
     def update_agent_progress(self, agent_id: int, status: str, result: str = None):
         """Thread-safe progress tracking"""
