@@ -1,3 +1,4 @@
+import asyncio
 from agent import OpenRouterAgent
 
 def main():
@@ -32,7 +33,7 @@ def main():
                 continue
             
             print("Agent: Thinking...")
-            response = agent.run(user_input)
+            response = asyncio.run(agent.run_async(user_input))
             print(f"Agent: {response}")
             
         except KeyboardInterrupt:

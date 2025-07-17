@@ -320,6 +320,12 @@ make it heavy/
     └── task_done_tool.py   # Task completion
 ```
 
+## ⏱ Benchmarking
+
+Run `benchmark.py` to compare how long multi-agent workflows take when using
+Tygent's asynchronous scheduler versus the standard thread pool fallback.
+The script prints a simple table of execution times for several example prompts.
+
 ## 🤝 Contributing
 
 1. Fork the repository

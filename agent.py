@@ -1,7 +1,12 @@
 import json
 import yaml
-from openai import OpenAI
+import asyncio
+from typing import Dict, Any, List
+from openai import OpenAI, AsyncOpenAI
 from tools import discover_tools
+from tygent.dag import DAG
+from tygent.nodes import Node
+from tygent.scheduler import Scheduler
 
 class OpenRouterAgent:
     def __init__(self, config_path="config.yaml", silent=False):
@@ -12,8 +17,12 @@ class OpenRouterAgent:
         # Silent mode for orchestrator (suppresses debug output)
         self.silent = silent
         
-        # Initialize OpenAI client with OpenRouter
+        # Initialize OpenAI clients (sync and async) with OpenRouter
         self.client = OpenAI(
+            base_url=self.config['openrouter']['base_url'],
+            api_key=self.config['openrouter']['api_key']
+        )
+        self.async_client = AsyncOpenAI(
             base_url=self.config['openrouter']['base_url'],
             api_key=self.config['openrouter']['api_key']
         )
@@ -39,6 +48,27 @@ class OpenRouterAgent:
             return response
         except Exception as e:
             raise Exception(f"LLM call failed: {str(e)}")
+
+    async def generate_search_queries(self, user_input: str) -> List[str]:
+        """Use the async client to generate web search queries for a task."""
+        prompt = (
+            "You are a planning assistant. Generate 3 concise web search queries "
+            "that would help answer the following question. Return ONLY a JSON "
+            "array of strings.\nQuestion: " + user_input
+        )
+        messages = [
+            {"role": "system", "content": "You generate search queries."},
+            {"role": "user", "content": prompt},
+        ]
+        try:
+            resp = await self.async_client.chat.completions.create(
+                model=self.config["openrouter"]["model"],
+                messages=messages,
+            )
+            content = resp.choices[0].message.content
+            return json.loads(content)
+        except Exception:
+            return [user_input]
     
     def handle_tool_call(self, tool_call):
         """Handle a tool call and return the result message"""
@@ -141,3 +171,62 @@ class OpenRouterAgent:
         
         # If max iterations reached, return whatever content we gathered
         return "\n\n".join(full_response_content) if full_response_content else "Maximum iterations reached. The agent may be stuck in a loop."
+
+    async def run_async(self, user_input: str) -> str:
+        """Run the agent using a Tygent DAG with real async execution."""
+
+        queries = await self.generate_search_queries(user_input)
+
+        dag = DAG("agent_plan")
+        search_nodes = []
+
+        class SearchNode(Node):
+            def __init__(self, agent: "OpenRouterAgent", name: str, query: str) -> None:
+                super().__init__(name)
+                self.agent = agent
+                self.query = query
+
+            async def execute(self, _inputs: Dict[str, Any]) -> list:
+                tool = self.agent.discovered_tools.get("search_web")
+                return await asyncio.to_thread(
+                    tool.execute,
+                    query=self.query,
+                    max_results=self.agent.config["search"].get("max_results", 5),
+                )
+
+        for idx, q in enumerate(queries):
+            node_name = f"search_{idx+1}"
+            dag.add_node(SearchNode(self, node_name, q))
+            search_nodes.append(node_name)
+
+        class SummarizeNode(Node):
+            def __init__(self, agent: "OpenRouterAgent") -> None:
+                super().__init__("summarize")
+                self.agent = agent
+
+            async def execute(self, inputs: Dict[str, Any]) -> str:
+                combined = json.dumps(inputs)
+                messages = [
+                    {"role": "system", "content": self.agent.config["system_prompt"]},
+                    {
+                        "role": "user",
+                        "content": (
+                            "Use these search results to answer the question: "
+                            + user_input
+                            + "\n" + combined
+                        ),
+                    },
+                ]
+                resp = await self.agent.async_client.chat.completions.create(
+                    model=self.agent.config["openrouter"]["model"],
+                    messages=messages,
+                )
+                return resp.choices[0].message.content
+
+        dag.add_node(SummarizeNode(self))
+        for name in search_nodes:
+            dag.add_edge(name, "summarize")
+
+        scheduler = Scheduler(dag)
+        result = await scheduler.execute({})
+        return result["results"]["summarize"]

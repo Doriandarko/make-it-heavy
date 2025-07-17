@@ -2,12 +2,14 @@ import json
 import yaml
 import time
 import threading
+import asyncio
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Any
 from agent import OpenRouterAgent
+from tygent.multi_agent import MultiAgentManager
 
 class TaskOrchestrator:
-    def __init__(self, config_path="config.yaml", silent=False):
+    def __init__(self, config_path="config.yaml", silent=False, use_tygent=True):
         # Load configuration
         with open(config_path, 'r') as f:
             self.config = yaml.safe_load(f)
@@ -16,6 +18,7 @@ class TaskOrchestrator:
         self.task_timeout = self.config['orchestrator']['task_timeout']
         self.aggregation_strategy = self.config['orchestrator']['aggregation_strategy']
         self.silent = silent
+        self.use_tygent = use_tygent
         
         # Track agent progress
         self.agent_progress = {}
@@ -70,28 +73,28 @@ class TaskOrchestrator:
     
     def run_agent_parallel(self, agent_id: int, subtask: str) -> Dict[str, Any]:
         """
-        Run a single agent with the given subtask.
+        Run a single agent with the given subtask (synchronous fallback).
         Returns result dictionary with agent_id, status, and response.
         """
         try:
             self.update_agent_progress(agent_id, "PROCESSING...")
-            
+
             # Use simple agent like in main.py
             agent = OpenRouterAgent(silent=True)
-            
+
             start_time = time.time()
             response = agent.run(subtask)
             execution_time = time.time() - start_time
-            
+
             self.update_agent_progress(agent_id, "COMPLETED", response)
-            
+
             return {
                 "agent_id": agent_id,
-                "status": "success", 
+                "status": "success",
                 "response": response,
                 "execution_time": execution_time
             }
-            
+
         except Exception as e:
             # Simple error handling
             return {
@@ -99,6 +102,29 @@ class TaskOrchestrator:
                 "status": "error",
                 "response": f"Error: {str(e)}",
                 "execution_time": 0
+            }
+
+    async def run_agent_async(self, agent_id: int, subtask: str) -> Dict[str, Any]:
+        """Asynchronous agent execution used with Tygent."""
+        try:
+            self.update_agent_progress(agent_id, "PROCESSING...")
+            agent = OpenRouterAgent(silent=True)
+            start_time = time.time()
+            response = await agent.run_async(subtask)
+            execution_time = time.time() - start_time
+            self.update_agent_progress(agent_id, "COMPLETED", response)
+            return {
+                "agent_id": agent_id,
+                "status": "success",
+                "response": response,
+                "execution_time": execution_time,
+            }
+        except Exception as e:
+            return {
+                "agent_id": agent_id,
+                "status": "error",
+                "response": f"Error: {str(e)}",
+                "execution_time": 0,
             }
     
     def aggregate_results(self, agent_results: List[Dict[str, Any]]) -> str:
@@ -166,6 +192,38 @@ class TaskOrchestrator:
         """Get current progress status for all agents"""
         with self.progress_lock:
             return self.agent_progress.copy()
+
+    async def _run_agents_with_tygent(self, subtasks: List[str]) -> List[Dict[str, Any]]:
+        """Run agents concurrently using Tygent's MultiAgentManager."""
+
+        class WrapperAgent:
+            def __init__(self, orchestrator: "TaskOrchestrator", agent_id: int, task: str) -> None:
+                self.orchestrator = orchestrator
+                self.agent_id = agent_id
+                self.task = task
+
+            async def execute(self, _inputs: Dict[str, Any]) -> Dict[str, Any]:
+                return await self.orchestrator.run_agent_async(self.agent_id, self.task)
+
+        manager = MultiAgentManager("orchestrator")
+        for idx, task in enumerate(subtasks):
+            manager.add_agent(f"agent_{idx+1}", WrapperAgent(self, idx, task))
+
+        results_dict = await manager.execute({})
+
+        # Convert results to list sorted by agent id
+        results = []
+        for idx in range(self.num_agents):
+            res = results_dict.get(f"agent_{idx+1}")
+            if res is None:
+                res = {
+                    "agent_id": idx,
+                    "status": "error",
+                    "response": "No response",
+                    "execution_time": 0,
+                }
+            results.append(res)
+        return results
     
     def orchestrate(self, user_input: str):
         """
@@ -184,29 +242,36 @@ class TaskOrchestrator:
         for i in range(self.num_agents):
             self.agent_progress[i] = "QUEUED"
         
-        # Execute agents in parallel
         agent_results = []
-        
-        with ThreadPoolExecutor(max_workers=self.num_agents) as executor:
-            # Submit all agent tasks
-            future_to_agent = {
-                executor.submit(self.run_agent_parallel, i, subtasks[i]): i 
-                for i in range(self.num_agents)
-            }
-            
-            # Collect results as they complete
-            for future in as_completed(future_to_agent, timeout=self.task_timeout):
-                try:
-                    result = future.result()
-                    agent_results.append(result)
-                except Exception as e:
-                    agent_id = future_to_agent[future]
-                    agent_results.append({
-                        "agent_id": agent_id,
-                        "status": "timeout",
-                        "response": f"Agent {agent_id + 1} timed out or failed: {str(e)}",
-                        "execution_time": self.task_timeout
-                    })
+
+        # Execute agents concurrently using Tygent when enabled
+        if self.use_tygent:
+            try:
+                agent_results = asyncio.run(self._run_agents_with_tygent(subtasks))
+            except Exception:
+                # Fall back to threads if Tygent execution fails
+                agent_results = []
+
+        # Use thread pool when Tygent is disabled or failed
+        if not agent_results:
+            with ThreadPoolExecutor(max_workers=self.num_agents) as executor:
+                future_to_agent = {
+                    executor.submit(self.run_agent_parallel, i, subtasks[i]): i
+                    for i in range(self.num_agents)
+                }
+
+                for future in as_completed(future_to_agent, timeout=self.task_timeout):
+                    try:
+                        result = future.result()
+                        agent_results.append(result)
+                    except Exception as e:
+                        agent_id = future_to_agent[future]
+                        agent_results.append({
+                            "agent_id": agent_id,
+                            "status": "timeout",
+                            "response": f"Agent {agent_id + 1} timed out or failed: {str(e)}",
+                            "execution_time": self.task_timeout,
+                        })
         
         # Sort results by agent_id for consistent output
         agent_results.sort(key=lambda x: x["agent_id"])
