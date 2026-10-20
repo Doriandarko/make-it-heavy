@@ -28,6 +28,8 @@ def discover_tools(config: dict = None, silent: bool = False) -> Dict[str, BaseT
                         
                         # Instantiate the tool
                         tool_instance = item(config or {})
+                        if not tool_instance.enabled:
+                            continue
                         tools[tool_instance.name] = tool_instance
                         if not silent:
                             print(f"Loaded tool: {tool_instance.name}")

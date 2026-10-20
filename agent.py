@@ -2,6 +2,7 @@ import json
 import yaml
 from openai import OpenAI
 from tools import discover_tools
+from parallel_search import search_conversation
 
 class OpenRouterAgent:
     def __init__(self, config_path="config.yaml", silent=False):
@@ -69,6 +70,7 @@ class OpenRouterAgent:
                 "content": json.dumps({"error": f"Tool execution failed: {str(e)}"})
             }
     
+    @search_conversation
     def run(self, user_input: str):
         """Run the agent with user input and return FULL conversation content"""
         # Initialize messages with system prompt and user input

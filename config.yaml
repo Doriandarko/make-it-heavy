@@ -57,5 +57,8 @@ orchestrator:
 
 # Search tool settings
 search:
+  provider: "duckduckgo"  # Set to "parallel" for free, keyless Search MCP
+  enabled: true
+  timeout: 30  # Parallel MCP timeout per HTTP request (seconds)
   max_results: 5
   user_agent: "Mozilla/5.0 (compatible; OpenRouter Agent)"

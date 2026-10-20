@@ -172,8 +172,41 @@ orchestrator:
 
 # Tool settings
 search:
+  provider: "duckduckgo"  # Default; optionally select "parallel"
   max_results: 5
   user_agent: "Mozilla/5.0 (compatible; OpenRouter Agent)"
+```
+
+### Parallel web search and page fetching
+
+Set `search.provider: "parallel"` in `config.yaml` to use
+[Parallel Search MCP](https://docs.parallel.ai/integrations/mcp/search-mcp).
+It provides free web search powered by Fast mode, without a Parallel account or
+API key. Both single-agent and heavy mode use this setting. The existing
+DuckDuckGo provider remains the default when `provider` is omitted or set to
+`"duckduckgo"`.
+
+With Parallel selected, `search_web(query, max_results)` returns source URLs and
+relevant excerpts in the existing result format. `max_results` limits the returned
+list to 1–20 entries; it does not change the server's search settings. Agents can
+also call `fetch_web(urls, objective)` for excerpts from up to 20 HTTP(S) pages when
+search excerpts need more context. Page fetching does not retrieve full documents.
+
+The anonymous service has usage limits. Errors are returned to the agent without
+switching providers or retrying automatically. `search.timeout` sets the timeout
+for each MCP HTTP request (30 seconds by default). `search.enabled: false` removes
+both search and page fetching from the agent's available tools. Existing
+`search.user_agent` settings continue to apply to DuckDuckGo page requests.
+
+Parallel receives the query or requested URLs, and a random research-task ID
+shared across search and fetch calls within one `OpenRouterAgent.run`. Each new
+run receives a fresh ID, including when reusing an agent. The integration uses
+the anonymous endpoint and does not read Parallel credentials from the environment.
+
+Run the deterministic agent and orchestration checks without API credentials:
+
+```bash
+python -m unittest discover -s tests -v
 ```
 
 ## 🔧 Development

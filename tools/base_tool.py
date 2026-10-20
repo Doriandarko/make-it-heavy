@@ -3,6 +3,10 @@ from typing import Dict, Any, List
 
 class BaseTool(ABC):
     """Base class for all tools"""
+
+    @property
+    def enabled(self) -> bool:
+        return True
     
     @property
     @abstractmethod
